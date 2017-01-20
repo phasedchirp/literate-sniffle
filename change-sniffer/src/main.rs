@@ -13,14 +13,19 @@ use std::fs::{metadata,OpenOptions};
 
 
 fn initialize(name: &str) {
-    let git_path = format!("../tracking/{}/",name);
-    let c1 = Command::new("mkdir").arg(&format!("../tracking/{}",name))
-            .output().expect("mkdir failed");
-    let c2 = Command::new("git").args(&["-C",&git_path,"init"]).output()
-            .expect("git init failed");
+    match metadata(&format!("../tracking/{}/",name)) {
+        Ok(_) => panic!("That name is already in use"),
+        Err(_) => {
+            let git_path = format!("../tracking/{}/",name);
+            let c1 = Command::new("mkdir").arg(&format!("../tracking/{}",name))
+                    .output().expect("mkdir failed");
+            let c2 = Command::new("git").args(&["-C",&git_path,"init"]).output()
+                    .expect("git init failed");
+        }
+    }
 }
 
-fn commit_changes() {
+fn commit_changes(name: &str) {
     //git add result.txt
     let add = Command::new("git").args(&["add",&format!("{}","blah")]).output()
             .expect("add failed");
@@ -29,7 +34,7 @@ fn commit_changes() {
             .output().expect("commit failed");
 }
 
-fn get_changes() -> Vec<u8> {
+fn get_changes(name: &str) -> Vec<u8> {
     let hashes = Command::new("git").args(&["log","-2","--pretty=format:\"%H\""])
                  .output().expect("git log failed");
     let commits: Vec<String> = String::from_utf8_lossy(&hashes.stdout)
@@ -40,15 +45,9 @@ fn get_changes() -> Vec<u8> {
     diffs.stdout
 }
 
-
-fn main() {
-    let inputs: Vec<String> = args().collect(); // name, url, frequency
-    match metadata(&format!("../tracking/{}/",inputs[1])) {
-        Ok(_) => println!("Found git directory"),
-        Err(_) => initialize(&inputs[1])
-    }
+fn fetch(name: &str) {
     let client = Client::new();
-    let mut result = client.get(&inputs[2]).send().unwrap();
+    let mut result = client.get("addr").send().unwrap();
     match result.status {
         StatusCode::Ok => {
             let mut buff_old = String::new();
@@ -63,6 +62,35 @@ fn main() {
                 file.write_all(buff_new.as_bytes());
             }
         },
-        _ => println!("Some other status code")
+        x => {
+            let mut file = OpenOptions::new().write(true).append(true)
+                        .create(true).open("fail-log").unwrap();
+            let msg = format!("Attempt to fetch {} failed with status code {}","addr",x);
+            file.write_all(msg.as_bytes());
+        }
     }
+}
+
+
+fn main() {
+    // mode name **args
+    let inputs: Vec<String> = args().collect();
+    match &*inputs[1] {
+        "add" => {
+            initialize(&inputs[2]);
+            fetch(&inputs[2]);
+        },
+        "update" => {
+            fetch(&inputs[2]);
+            commit_changes(&inputs[2]);
+
+        },
+        "diffs" => {
+            get_changes(&inputs[2]);
+        },
+        "names" => {},
+        _ => println!("That mode not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
+    }
+
+
 }
