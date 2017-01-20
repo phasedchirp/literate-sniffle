@@ -8,14 +8,28 @@ use std::process::Command;
 use std::env::args;
 use std::fs::{metadata,OpenOptions};
 
+
+fn initialize(name: &str) {
+    let c1 = Command::new("mkdir")
+             .arg(name)
+             .output()
+             .expect("Failed to make directory");
+    let c2 = Command::new("git").arg("-C")
+             .arg(&format!("../{}/",name))
+             .arg("init")
+             .output()
+             .expect("failed to initialize git repo");
+}
+
+
 fn main() {
-    let inputs: Vec<String> = args().collect(); // url, frequency
+    let inputs: Vec<String> = args().collect(); // name, url, frequency
     match metadata("../.git/") {
         Ok(_) => println!("Found git directory"),
         Err(_) => println!("Didn't find git")
     }
     let client = Client::new();
-    let mut result = client.get(&inputs[1]).send().unwrap();
+    let mut result = client.get(&inputs[2]).send().unwrap();
     match result.status {
         StatusCode::Ok => {
             let mut buff_old = String::new();
