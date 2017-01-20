@@ -10,15 +10,21 @@ use std::fs::{metadata,OpenOptions};
 
 
 fn initialize(name: &str) {
-    let c1 = Command::new("mkdir")
-             .arg(name)
-             .output()
-             .expect("Failed to make directory");
-    let c2 = Command::new("git").arg("-C")
-             .arg(&format!("../{}/",name))
-             .arg("init")
-             .output()
-             .expect("failed to initialize git repo");
+    let git_path = format!("../{}/",name);
+    let c1 = Command::new("mkdir").arg(name).output().expect("mkdir failed");
+    let c2 = Command::new("git").args(&["-C",&git_path,"init"]).output()
+             .expect("git init failed");
+}
+
+fn get_changes() -> Vec<u8> {
+    let hashes = Command::new("git").args(&["log","-2","--pretty=format:\"%H\""])
+                 .output().expect("git log failed");
+    let commits: Vec<String> = String::from_utf8_lossy(&hashes.stdout)
+                             .split_whitespace().map(|s| s.to_string())
+                             .collect();
+    let diffs = Command::new("git").args(&["diff",&commits[0],&commits[1]])
+                .output().expect("failed to retrieve diff");
+    diffs.stdout
 }
 
 
