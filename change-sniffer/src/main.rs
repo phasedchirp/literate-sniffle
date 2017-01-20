@@ -1,7 +1,10 @@
 extern crate hyper;
+extern crate chrono;
 
 use hyper::client::{Client,Response};
 use hyper::status::StatusCode;
+
+use chrono::UTC;
 
 use std::io::{Read,Write};
 use std::process::Command;
@@ -10,10 +13,20 @@ use std::fs::{metadata,OpenOptions};
 
 
 fn initialize(name: &str) {
-    let git_path = format!("../{}/",name);
-    let c1 = Command::new("mkdir").arg(name).output().expect("mkdir failed");
+    let git_path = format!("../tracking/{}/",name);
+    let c1 = Command::new("mkdir").arg(&format!("../tracking/{}",name))
+            .output().expect("mkdir failed");
     let c2 = Command::new("git").args(&["-C",&git_path,"init"]).output()
-             .expect("git init failed");
+            .expect("git init failed");
+}
+
+fn commit_changes() {
+    //git add result.txt
+    let add = Command::new("git").args(&["add",&format!("{}","blah")]).output()
+            .expect("add failed");
+    // git commit -m TIMESTAMP
+    let comm = Command::new("git").args(&["commit","-m",&UTC::now().to_string()])
+            .output().expect("commit failed");
 }
 
 fn get_changes() -> Vec<u8> {
@@ -30,9 +43,9 @@ fn get_changes() -> Vec<u8> {
 
 fn main() {
     let inputs: Vec<String> = args().collect(); // name, url, frequency
-    match metadata("../.git/") {
+    match metadata(&format!("../tracking/{}/",inputs[1])) {
         Ok(_) => println!("Found git directory"),
-        Err(_) => println!("Didn't find git")
+        Err(_) => initialize(&inputs[1])
     }
     let client = Client::new();
     let mut result = client.get(&inputs[2]).send().unwrap();
@@ -40,12 +53,8 @@ fn main() {
         StatusCode::Ok => {
             let mut buff_old = String::new();
             let mut buff_new = String::new();
-            let mut file = OpenOptions::new()
-                        .write(true)
-                        .truncate(true)
-                        .create(true)
-                        .open("result.txt")
-                        .unwrap();
+            let mut file = OpenOptions::new().write(true).truncate(true)
+                        .create(true).open("result.txt").unwrap();
 
             file.read_to_string(&mut buff_old);
             result.read_to_string(&mut buff_new);

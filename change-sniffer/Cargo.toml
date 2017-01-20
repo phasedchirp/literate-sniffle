@@ -5,3 +5,4 @@ authors = ["chirp"]
 
 [dependencies]
 hyper = "0.10.0"
+chrono = "0.2.25"
