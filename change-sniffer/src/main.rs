@@ -1,8 +1,11 @@
 extern crate hyper;
+extern crate hyper_native_tls;
 extern crate chrono;
 
 use hyper::client::Client;
 use hyper::status::StatusCode;
+use hyper::net::HttpsConnector;
+use hyper_native_tls::NativeTlsClient;
 
 use chrono::UTC;
 
@@ -53,7 +56,7 @@ fn initialize(name: &str) {
     let _ = Command::new("mkdir").arg(&git_path).output().expect("mkdir failed");
     let _ = Command::new("git").args(&["-C",&git_path,"init"]).output()
             .expect("git init failed");
-    let _ = Command::new("touch").arg("../result.txt").output().expect("tracking file fail");
+    let _ = Command::new("touch").arg(&(git_path + "result.txt")).output().expect("tracking file fail");
 
 }
 
@@ -85,7 +88,10 @@ fn get_changes(name: &str) -> Vec<u8> {
 
 fn fetch(name: &str, addr: &str) {
     let path = format!("../tracking/{}/result.txt",name);
-    let client = Client::new();
+    let ssl = NativeTlsClient::new().unwrap();
+    let connector = HttpsConnector::new(ssl);
+    let client = Client::with_connector(connector);
+    // let client = Client::new();
     let mut result = client.get(addr).send().unwrap();
     match result.status {
         StatusCode::Ok => {

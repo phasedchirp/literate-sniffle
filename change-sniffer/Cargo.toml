@@ -5,4 +5,5 @@ authors = ["chirp"]
 
 [dependencies]
 hyper = "0.10.0"
+hyper-native-tls = "0.2.1"
 chrono = "0.2.25"
