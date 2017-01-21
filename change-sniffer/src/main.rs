@@ -36,9 +36,13 @@ fn read_config() -> HashMap<String,String> {
     config
 }
 
-fn update_config(name: &str, addr: &str) {}
+fn update_config(name: &str, addr: &str) {
+    let mut f = OpenOptions::new().write(true).append(true).create(true)
+                .open("config").unwrap();
+    f.write_all(format!("{} {}",name,addr).as_bytes());
+}
 
-fn initialize(name: &str) {
+fn initialize(name: &str, addr: &str) {
     match metadata(&format!("../tracking/{}/",name)) {
         Ok(_) => panic!("That name is already in use"),
         Err(_) => {
@@ -51,13 +55,18 @@ fn initialize(name: &str) {
     }
 }
 
-fn commit_changes(name: &str) {
+fn commit_changes(name: &str) -> String {
     //git add result.txt
     let add = Command::new("git").args(&["add",&format!("{}","blah")]).output()
-            .expect("add failed");
+            .expect("add failed").status.code().unwrap();
     // git commit -m TIMESTAMP
     let comm = Command::new("git").args(&["commit","-m",&UTC::now().to_string()])
-            .output().expect("commit failed");
+            .output().expect("commit failed").status.code().unwrap();
+    match (add,comm) {
+        (0,0) => "success".to_string(),
+        (0,_) => "commit failed".to_string(),
+        (_,_) => "failure".to_string()
+    }
 }
 
 fn get_changes(name: &str) -> Vec<u8> {
@@ -99,23 +108,29 @@ fn fetch(name: &str) {
 
 
 fn main() {
+    let mut config = read_config();
     // mode name **args
     let inputs: Vec<String> = args().collect();
     match &*inputs[1] {
         "add" => {
-            initialize(&inputs[2]);
-            fetch(&inputs[2]);
+            match config.get(&inputs[2]) {
+                Some(addr) => println!("The name {} is already in use for {}",&inputs[2],&addr),
+                None => {
+                    initialize(&inputs[2],&inputs[3]);
+                    fetch(&inputs[2]);
+                }
+            }
         },
         "update" => {
             fetch(&inputs[2]);
-            commit_changes(&inputs[2]);
-
+            let res = commit_changes(&inputs[2]);
+            println!("{}",res);
         },
         "diffs" => {
             get_changes(&inputs[2]);
         },
         "names" => {},
-        _ => println!("That mode not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
+        _ => println!("That option was not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
     }
 
 

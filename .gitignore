@@ -4,3 +4,4 @@ change-sniffer/target/
 
 # Project-specific:
 change-sniffer/result.txt
+/tracking/*
