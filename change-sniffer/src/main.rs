@@ -9,8 +9,34 @@ use chrono::UTC;
 use std::io::{Read,Write};
 use std::process::Command;
 use std::env::args;
-use std::fs::{metadata,OpenOptions};
+use std::fs::{metadata,OpenOptions,File};
+use std::collections::HashMap;
 
+
+fn read_config() -> HashMap<String,String> {
+    let f = File::open("../config");
+    let mut config = HashMap::new();
+    match f {
+        Ok(mut file) => {
+
+            let mut contents = String::new();
+            file.read_to_string(&mut contents);
+            let lines: Vec<&str> = contents.split("\n").collect();
+            for s in lines {
+                let info: Vec<String> = s.split_whitespace()
+                            .map(|x| x.to_string()).collect();
+                config.insert(info[0].clone(),info[1].clone());
+            }
+        },
+        Err(e) => {
+            // let mut config = HashMap::new();
+            panic!("Failed to open config file: {:?}",e);
+        }
+    }
+    config
+}
+
+fn update_config(name: &str, addr: &str) {}
 
 fn initialize(name: &str) {
     match metadata(&format!("../tracking/{}/",name)) {
