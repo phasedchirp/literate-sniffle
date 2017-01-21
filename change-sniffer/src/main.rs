@@ -26,10 +26,9 @@ fn read_config() -> HashMap<String,String> {
     let mut config = HashMap::new();
     match f {
         Ok(mut file) => {
-
             let mut contents = String::new();
             file.read_to_string(&mut contents).unwrap();
-            let lines: Vec<&str> = contents.split("\n").collect();
+            let lines: Vec<&str> = contents.trim().split("\n").collect();
             if lines != [""] {
                 for s in lines {
                     let info: Vec<String> = s.split_whitespace()
@@ -48,7 +47,7 @@ fn read_config() -> HashMap<String,String> {
 fn update_config(name: &str, addr: &str) {
     let mut f = OpenOptions::new().write(true).append(true).create(true)
                 .open("../config").unwrap();
-    f.write_all(format!("{} {}",name,addr).as_bytes()).unwrap();
+    f.write_all(format!("{} {}\n",name,addr).as_bytes()).unwrap();
 }
 
 fn initialize(name: &str) {
