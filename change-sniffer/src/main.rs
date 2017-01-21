@@ -9,9 +9,14 @@ use chrono::UTC;
 use std::io::{Read,Write};
 use std::process::Command;
 use std::env::args;
-use std::fs::{metadata,OpenOptions,File};
+use std::fs::{metadata,OpenOptions,File,DirBuilder};
 use std::collections::HashMap;
 
+fn setup() {
+    Command::new("mkdir").arg("../tracking").output().expect("mkdir failed");
+    Command::new("touch").arg("../.config").output().expect("config creation failed");
+    Command::new("touch").arg("../fail-log").output().expect("log creation failed");
+}
 
 fn read_config() -> HashMap<String,String> {
     let f = File::open("../config");
@@ -108,11 +113,12 @@ fn fetch(name: &str) {
 
 
 fn main() {
-    let mut config = read_config();
     // mode name **args
     let inputs: Vec<String> = args().collect();
     match &*inputs[1] {
+        "setup" => setup(),
         "add" => {
+            let mut config = read_config();
             match config.get(&inputs[2]) {
                 Some(addr) => println!("The name {} is already in use for {}",&inputs[2],&addr),
                 None => {
