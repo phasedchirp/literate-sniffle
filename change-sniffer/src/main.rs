@@ -53,10 +53,11 @@ fn update_config(name: &str, addr: &str) {
 fn initialize(name: &str) {
     let git_path = format!("../tracking/{}/",name);
     let _ = Command::new("mkdir").arg(&git_path).output().expect("mkdir failed");
-    let _ = Command::new("git").args(&["-C",&git_path,"init"]).output()
-            .expect("git init failed");
-    let _ = Command::new("git").args(&["config","user.name","change-sniffer"]);
-    let _ = Command::new("git").args(&["config","user.email","change-sniffer@a.fake.place"]);
+    let _ = Command::new("git").args(&["-C",&git_path,"init"]).output().expect("git init failed");
+    let _ = Command::new("git").args(&["-C",&git_path,"config","user.name","change-sniffer"])
+            .output().expect("set user.name failed");
+    let _ = Command::new("git").args(&["-C",&git_path,"config","user.email",
+            "change-sniffer@a.place"]).output().expect("set user.name failed");;
     let _ = Command::new("touch").arg(&(git_path + "result.txt")).output().expect("tracking file fail");
 
 }
@@ -147,7 +148,13 @@ fn main() {
         "diffs" => {
             get_changes(&inputs[2]);
         },
-        "names" => {},
+        "names" => {
+            let config = read_config();
+            for key in config.keys() {
+                let val = config.get(key).unwrap();
+                println!("{}: {}",key,val);
+            }
+        },
         _ => println!("That option was not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
     }
 
