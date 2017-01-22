@@ -12,7 +12,7 @@ use chrono::UTC;
 use std::io::{Read,Write};
 use std::process::Command;
 use std::env::args;
-use std::fs::{metadata,OpenOptions,File};
+use std::fs::{OpenOptions,File};
 use std::collections::HashMap;
 
 fn setup() {
@@ -55,6 +55,8 @@ fn initialize(name: &str) {
     let _ = Command::new("mkdir").arg(&git_path).output().expect("mkdir failed");
     let _ = Command::new("git").args(&["-C",&git_path,"init"]).output()
             .expect("git init failed");
+    let _ = Command::new("git").args(&["config","user.name","change-sniffer"]);
+    let _ = Command::new("git").args(&["config","user.email","change-sniffer@a.fake.place"]);
     let _ = Command::new("touch").arg(&(git_path + "result.txt")).output().expect("tracking file fail");
 
 }
