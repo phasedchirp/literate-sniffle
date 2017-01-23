@@ -68,10 +68,10 @@ fn commit_changes(name: &str) -> String {
     let comm = Command::new("git").args(&["-C",&git_path,"commit","-m",&UTC::now().to_string()])
             .output().expect("commit failed").status.code().unwrap();
     match (add,comm) {
-        (0,0) => "success".to_string(),
-        (0,_) => "commit failed".to_string(),
-        (_,0) => "add failed".to_string(),
-        (_,_) => "multiple failure".to_string()
+        (0,0) => "successfully committed changes".to_string(),
+        (0,_) => "git commit failed".to_string(),
+        (_,0) => "git add failed".to_string(),
+        (_,_) => "failed to update git repository".to_string()
     }
 }
 
@@ -89,7 +89,6 @@ fn get_changes(name: &str) -> Vec<u8> {
 
 fn fetch(name: &str, addr: &str) {
     let path = format!("../tracking/{}/result.txt",name);
-    println!("{:?}", path);
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
@@ -125,6 +124,14 @@ fn fetch(name: &str, addr: &str) {
 fn main() {
     // mode name **args
     let inputs: Vec<String> = args().collect();
+    if inputs.len() == 1 {
+        println!("The program takes the following options:\n");
+        println!("setup -- generate tracking directory, config and log files");
+        println!("add <name> <url> -- initialize tracking repo for <url>, with alias <name>");
+        println!("update <name> -- update tracking repo for <name>");
+        println!("diffs <name> -- get changes between two most recent versions of <name>");
+        println!("names -- list currently assigned names and associated urls");
+    }
     match &*inputs[1] {
         "setup" => setup(),
         "add" => {
