@@ -106,13 +106,6 @@ fn fetch(name: &str, addr: &str) {
             result.read_to_string(&mut buff_new).unwrap();
             // compare old and new responses, write if changes have occurred:
             if buff_old.trim() != buff_new.trim() {
-                // let old_lines: Vec<String> = buff_old.lines().map(|s| s.to_string()).collect();
-                // let new_lines: Vec<String> = buff_new.lines().map(|s| s.to_string()).collect();
-                // for i in 0..old_lines.len() {
-                //     if old_lines[i] != new_lines[i] {
-                //         println!("{}:\n{:?}\n{:?}",i,old_lines[i].as_bytes(),new_lines[i].as_bytes());
-                //     }
-                // }
                 file.write_all(buff_new.trim().as_bytes()).unwrap();
                 println!("Found difference");
                 let res = commit_changes(name);
