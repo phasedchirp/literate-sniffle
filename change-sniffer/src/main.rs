@@ -28,13 +28,10 @@ fn read_config() -> HashMap<String,String> {
         Ok(mut file) => {
             let mut contents = String::new();
             file.read_to_string(&mut contents).unwrap();
-            let lines: Vec<&str> = contents.trim().split("\n").collect();
-            if lines != [""] {
-                for s in lines {
-                    let info: Vec<String> = s.split_whitespace()
-                                .map(|x| x.to_string()).collect();
-                    config.insert(info[0].clone(),info[1].clone());
-                }
+            for s in contents.trim().lines() {
+                let info: Vec<String> = s.split_whitespace()
+                            .map(|x| x.to_string()).collect();
+                config.insert(info[0].clone(),info[1].clone());
             }
         },
         Err(e) => {
@@ -64,15 +61,17 @@ fn initialize(name: &str) {
 
 fn commit_changes(name: &str) -> String {
     //git add result.txt
-    let add = Command::new("git").args(&["add",&format!("{}","blah")]).output()
+    let git_path = format!("../tracking/{}/",name);
+    let add = Command::new("git").args(&["-C",&git_path,"add","result.txt"]).output()
             .expect("add failed").status.code().unwrap();
     // git commit -m TIMESTAMP
-    let comm = Command::new("git").args(&["commit","-m",&UTC::now().to_string()])
+    let comm = Command::new("git").args(&["-C",&git_path,"commit","-m",&UTC::now().to_string()])
             .output().expect("commit failed").status.code().unwrap();
     match (add,comm) {
         (0,0) => "success".to_string(),
         (0,_) => "commit failed".to_string(),
-        (_,_) => "failure".to_string()
+        (_,0) => "add failed".to_string(),
+        (_,_) => "multiple failure".to_string()
     }
 }
 
@@ -90,6 +89,7 @@ fn get_changes(name: &str) -> Vec<u8> {
 
 fn fetch(name: &str, addr: &str) {
     let path = format!("../tracking/{}/result.txt",name);
+    println!("{:?}", path);
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
@@ -99,13 +99,25 @@ fn fetch(name: &str, addr: &str) {
         StatusCode::Ok => {
             let mut buff_old = String::new();
             let mut buff_new = String::new();
-            let mut file = OpenOptions::new().read(true).write(true).truncate(true)
+            let mut file = OpenOptions::new().read(true).write(true)
                         .create(true).open(&path).unwrap();
             file.read_to_string(&mut buff_old).unwrap();
+
             result.read_to_string(&mut buff_new).unwrap();
             // compare old and new responses, write if changes have occurred:
-            if buff_old != buff_new {
-                file.write_all(buff_new.as_bytes()).unwrap();
+            if buff_old.trim() != buff_new.trim() {
+                println!("Found difference");
+                let old_lines: Vec<String> = buff_old.lines().map(|s| s.to_string()).collect();
+                let new_lines: Vec<String> = buff_new.lines().map(|s| s.to_string()).collect();
+                for i in 0..old_lines.len() {
+                    if old_lines[i] != new_lines[i] {
+                        println!("{}:\n{}\n{}",i,old_lines[i],new_lines[i]);
+                    }
+                }
+                // file.write_all(buff_new.trim().as_bytes()).unwrap();
+                // println!("Found difference");
+                // let res = commit_changes(name);
+                // println!("{}",res);
             }
         },
         x => {
@@ -139,8 +151,6 @@ fn main() {
             match config.get(&inputs[2]) {
                 Some(addr) => {
                     fetch(&inputs[2],&addr);
-                    let res = commit_changes(&inputs[2]);
-                    println!("{}",res);
                 },
                 None => println!("That name isn't being tracked")
             }
