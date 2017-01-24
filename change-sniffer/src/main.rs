@@ -12,7 +12,7 @@ use chrono::UTC;
 use std::io::{Read,Write};
 use std::process::Command;
 use std::env::args;
-use std::fs::{OpenOptions,File};
+use std::fs::{OpenOptions,File,copy};
 use std::collections::HashMap;
 
 fn setup() {
@@ -77,24 +77,25 @@ fn commit_changes(name: &str) -> String {
 
 fn get_changes(name: &str) -> Vec<u8> {
     let dir = format!("../tracking/{}",name);
-    let hashes = Command::new("git").args(&["-C",&dir,"log","-2","--pretty=format:\"%H\""])
-                 .output().expect("git log failed");
-    let commits: Vec<String> = String::from_utf8_lossy(&hashes.stdout)
-                             .split_whitespace().map(|s| s.to_string())
-                             .collect();
-    println!("{}", commits[0]);
-    println!("{}", commits[1]);
+    // need to fix this bit
+    // let hashes = Command::new("git").args(&["-C",&dir,"log","-2","--pretty=format:\"%H\""])
+                //  .output().expect("git log failed");
+    // let commits: Vec<String> = String::from_utf8_lossy(&hashes.stdout)
+                            //  .split_whitespace().map(|s| s.to_string())
+                            //  .collect();
+    // println!("{}", commits[0]);
+    // println!("{}", commits[1]);
     let diffs = Command::new("git").args(&["-C",&dir,"diff","HEAD^"])
                 .output().expect("failed to retrieve diff");
     diffs.stdout
 }
 
 fn fetch(name: &str, addr: &str) {
+    println!("Checking {} for changes",addr);
     let path = format!("../tracking/{}/result.txt",name);
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-    // let mut result = client.get(addr).send().unwrap();
     match client.get(addr).send() {
         Ok(mut result) => {
             match result.status {
@@ -111,7 +112,7 @@ fn fetch(name: &str, addr: &str) {
                     if buff_old.trim() != buff_new.trim() {
                         let mut file = OpenOptions::new().write(true).truncate(true).open(&path).unwrap();
                         file.write_all(buff_new.trim().as_bytes()).unwrap();
-                        println!("Found difference");
+                        println!("{} differs from previously fetched version",addr);
                         let res = commit_changes(name);
                         println!("{}",res);
                     }
@@ -121,6 +122,7 @@ fn fetch(name: &str, addr: &str) {
                                 .create(true).open("fail-log").unwrap();
                     let msg = format!("Attempt to fetch {} failed with status code {}","addr",x);
                     file.write_all(msg.as_bytes()).unwrap();
+                    println!("{}",msg);
                 }
         }},
         Err(e) => {
@@ -128,6 +130,7 @@ fn fetch(name: &str, addr: &str) {
                         .create(true).open("fail-log").unwrap();
             let msg = format!("Attempt to fetch {} failed with error {}","addr",e);
             file.write_all(msg.as_bytes()).unwrap();
+            println!("{}",msg);
         }
     }
 }
@@ -137,49 +140,65 @@ fn main() {
     // mode name **args
     let inputs: Vec<String> = args().collect();
     if inputs.len() == 1 {
-        println!("The program takes the following options:\n");
-        println!("setup -- generate tracking directory, config and log files");
+        println!("\nThis program takes one of the following options:");
+        println!("setup <file>     -- generate tracking directory, configuration and log files.
+                    Will use supplied file to populate the tracking list if
+                    specified, otherwise generates an empty initial list.");
         println!("add <name> <url> -- initialize tracking repo for <url>, with alias <name>");
-        println!("update <name> -- update tracking repo for <name>");
-        println!("all -- update all currently tracked urls");
-        println!("diffs <name> -- get changes between two most recent versions of <name>");
-        println!("names -- list currently assigned names and associated urls");
-    }
-    match &*inputs[1] {
-        "setup" => setup(),
-        "add" => {
-            let config = read_config();
-            match config.get(&inputs[2]) {
-                Some(addr) => println!("The name {} is already in use for {}",&inputs[2],&addr),
-                None => {
-                    initialize(&inputs[2]);
-                    fetch(&inputs[2],&inputs[3]);
-                    update_config(&inputs[2],&inputs[3]);
+        println!("update <name>    -- update tracking repo for <name>");
+        println!("all              -- update all currently tracked urls");
+        println!("diffs <name>     -- get changes between two most recent versions of <name>");
+        println!("names            -- list currently assigned names and associated urls\n");
+    } else {
+        match &*inputs[1] {
+            "setup" => {
+                setup();
+                if inputs.len() > 2 {
+                    copy(&inputs[2],"../config");
+                    let config = read_config();
+                    for name in config.keys() {
+                        initialize(&name);
+                        fetch(&name,&config.get(name).unwrap());
+                    }
+                }
+            },
+            "add" => {
+                let config = read_config();
+                match config.get(&inputs[2]) {
+                    Some(addr) => println!("The name {} is already in use for {}",&inputs[2],&addr),
+                    None => {
+                        initialize(&inputs[2]);
+                        fetch(&inputs[2],&inputs[3]);
+                        update_config(&inputs[2],&inputs[3]);
+                    }
+                }
+            },
+            "update" => {
+                let config = read_config();
+                match config.get(&inputs[2]) {
+                    Some(addr) => {
+                        fetch(&inputs[2],&addr);
+                    },
+                    None => println!("The name \"{}\" isn't associated with a tracking repo",&inputs[2])
+                }
+            },
+            "all" => {
+                let config = read_config();
+                for name in config.keys() {
+                    fetch(&name,&config.get(name).unwrap());
                 }
             }
-        },
-        "update" => {
-            let config = read_config();
-            match config.get(&inputs[2]) {
-                Some(addr) => {
-                    fetch(&inputs[2],&addr);
-                },
-                None => println!("That name isn't being tracked")
-            }
-        },
-        "diffs" => {
-            let msg = get_changes(&inputs[2]);
-            println!("{:?}", &String::from_utf8_lossy(&msg));
-        },
-        "names" => {
-            let config = read_config();
-            for key in config.keys() {
-                let val = config.get(key).unwrap();
-                println!("{}: {}",key,val);
-            }
-        },
-        _ => println!("That option was not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
+            "diffs" => {
+                let msg = get_changes(&inputs[2]);
+                println!("{}", &String::from_utf8_lossy(&msg));
+            },
+            "names" => {
+                let config = read_config();
+                for key in config.keys() {
+                    println!("{}: {}",key,&config.get(key).unwrap());
+                }
+            },
+            _ => println!("That option was not recognized.\nValid modes are 'add', 'update','diffs', or 'names'")
+        }
     }
-
-
 }
