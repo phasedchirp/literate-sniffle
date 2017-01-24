@@ -94,30 +94,39 @@ fn fetch(name: &str, addr: &str) {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-    let mut result = client.get(addr).send().unwrap();
-    match result.status {
-        StatusCode::Ok => {
-            let mut buff_old = String::new();
-            {
-                let mut file = OpenOptions::new().read(true).open(&path).unwrap();
-                file.read_to_string(&mut buff_old).unwrap();
-            }
-            let mut buff_new = String::new();
+    // let mut result = client.get(addr).send().unwrap();
+    match client.get(addr).send() {
+        Ok(mut result) => {
+            match result.status {
+                StatusCode::Ok => {
+                    let mut buff_old = String::new();
+                    {
+                        let mut file = OpenOptions::new().read(true).open(&path).unwrap();
+                        file.read_to_string(&mut buff_old).unwrap();
+                    }
+                    let mut buff_new = String::new();
 
-            result.read_to_string(&mut buff_new).unwrap();
-            // compare old and new responses, write if changes have occurred:
-            if buff_old.trim() != buff_new.trim() {
-                let mut file = OpenOptions::new().write(true).truncate(true).open(&path).unwrap();
-                file.write_all(buff_new.trim().as_bytes()).unwrap();
-                println!("Found difference");
-                let res = commit_changes(name);
-                println!("{}",res);
-            }
-        },
-        x => {
+                    result.read_to_string(&mut buff_new).unwrap();
+                    // compare old and new responses, write if changes have occurred:
+                    if buff_old.trim() != buff_new.trim() {
+                        let mut file = OpenOptions::new().write(true).truncate(true).open(&path).unwrap();
+                        file.write_all(buff_new.trim().as_bytes()).unwrap();
+                        println!("Found difference");
+                        let res = commit_changes(name);
+                        println!("{}",res);
+                    }
+                },
+                x => {
+                    let mut file = OpenOptions::new().write(true).append(true)
+                                .create(true).open("fail-log").unwrap();
+                    let msg = format!("Attempt to fetch {} failed with status code {}","addr",x);
+                    file.write_all(msg.as_bytes()).unwrap();
+                }
+        }},
+        Err(e) => {
             let mut file = OpenOptions::new().write(true).append(true)
                         .create(true).open("fail-log").unwrap();
-            let msg = format!("Attempt to fetch {} failed with status code {}","addr",x);
+            let msg = format!("Attempt to fetch {} failed with error {}","addr",e);
             file.write_all(msg.as_bytes()).unwrap();
         }
     }
@@ -132,6 +141,7 @@ fn main() {
         println!("setup -- generate tracking directory, config and log files");
         println!("add <name> <url> -- initialize tracking repo for <url>, with alias <name>");
         println!("update <name> -- update tracking repo for <name>");
+        println!("all -- update all currently tracked urls");
         println!("diffs <name> -- get changes between two most recent versions of <name>");
         println!("names -- list currently assigned names and associated urls");
     }
