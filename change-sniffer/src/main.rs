@@ -82,6 +82,8 @@ fn get_changes(name: &str) -> Vec<u8> {
     let commits: Vec<String> = String::from_utf8_lossy(&hashes.stdout)
                              .split_whitespace().map(|s| s.to_string())
                              .collect();
+    println!("{}", commits[0]);
+    println!("{}", commits[1]);
     let diffs = Command::new("git").args(&["diff",&commits[0],&commits[1]])
                 .output().expect("failed to retrieve diff");
     diffs.stdout
@@ -92,19 +94,20 @@ fn fetch(name: &str, addr: &str) {
     let ssl = NativeTlsClient::new().unwrap();
     let connector = HttpsConnector::new(ssl);
     let client = Client::with_connector(connector);
-    // let client = Client::new();
     let mut result = client.get(addr).send().unwrap();
     match result.status {
         StatusCode::Ok => {
             let mut buff_old = String::new();
+            {
+                let mut file = OpenOptions::new().read(true).open(&path).unwrap();
+                file.read_to_string(&mut buff_old).unwrap();
+            }
             let mut buff_new = String::new();
-            let mut file = OpenOptions::new().read(true).write(true)
-                        .create(true).open(&path).unwrap();
-            file.read_to_string(&mut buff_old).unwrap();
 
             result.read_to_string(&mut buff_new).unwrap();
             // compare old and new responses, write if changes have occurred:
             if buff_old.trim() != buff_new.trim() {
+                let mut file = OpenOptions::new().write(true).truncate(true).open(&path).unwrap();
                 file.write_all(buff_new.trim().as_bytes()).unwrap();
                 println!("Found difference");
                 let res = commit_changes(name);
@@ -155,7 +158,8 @@ fn main() {
             }
         },
         "diffs" => {
-            get_changes(&inputs[2]);
+            let msg = get_changes(&inputs[2]);
+            println!("{:?}", &String::from_utf8_lossy(&msg));
         },
         "names" => {
             let config = read_config();
