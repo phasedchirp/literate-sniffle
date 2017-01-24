@@ -84,7 +84,7 @@ fn get_changes(name: &str) -> Vec<u8> {
                              .collect();
     println!("{}", commits[0]);
     println!("{}", commits[1]);
-    let diffs = Command::new("git").args(&["diff",&commits[0],&commits[1]])
+    let diffs = Command::new("git").args(&["-C",&dir,"diff","HEAD^"])
                 .output().expect("failed to retrieve diff");
     diffs.stdout
 }
