@@ -11,16 +11,18 @@ use chrono::UTC;
 
 use std::io::{Read,Write,stdin};
 use std::process::Command;
-use std::env::args;
-use std::fs::{OpenOptions,File,copy};
+use std::env::{args,home_dir};
+use std::fs::{OpenOptions,File,copy,canonicalize};
 use std::collections::HashMap;
 
-fn setup() {
+fn setup(home: &str) {
+    let config_path = format!("{}/.sniffer-config",home);
     let mut dir = String::new();
     // Command::new("touch").arg("~/.sniffer-config").output().expect("config creation failed");
     println!("Please specify a directory for tracking repositories:");
     stdin().read_line(&mut dir).expect("failed to read input");
-    let mut file = OpenOptions::new().write(true).create(true).open("/home/user/.sniffer-config")
+    let dir = dir.replace("~",home);
+    let mut file = OpenOptions::new().write(true).truncate(true).create(true).open(config_path)
         .expect("failed to open config file");
 
     file.write_all(&dir.trim().as_bytes()).expect("failed to set tracking directory");
@@ -38,6 +40,7 @@ fn setup() {
 }
 
 fn read_config(config: &str) -> HashMap<String,String> {
+    println!("{}/config",config);
     let f = File::open(&format!("{}/config",config));
     let mut config = HashMap::new();
     match f {
@@ -131,6 +134,10 @@ fn fetch(config: &str, name: &str, addr: &str) {
                         println!("{} differs from previously fetched version",addr);
                         let res = commit_changes(config,name);
                         println!("{}",res);
+                    } else {
+                        let msg = format!("{} was accessed at {} and no differences were found",
+                            addr,&UTC::now().to_string());
+                        println!("{}", msg);
                     }
                 },
                 x => {
@@ -156,12 +163,13 @@ fn main() {
     // mode name **args
     let inputs: Vec<String> = args().collect();
     let mut tracking = String::new();
+    let home = home_dir().unwrap().to_string_lossy().into_owned();
+    let config_path = format!("{}/.sniffer-config",home);
     if (inputs.len() < 2) || (inputs[1] != "setup") {
-        let mut sniffer_config = OpenOptions::new().read(true).open("/home/user/.sniffer-config")
+        let mut sniffer_config = OpenOptions::new().read(true).open(&config_path)
             .expect("Failed to open configuration file ~/.sniffer-config");
         sniffer_config.read_to_string(&mut tracking);
     }
-
 
     if inputs.len() == 1 {
         println!("\nThis program takes one of the following options:");
@@ -176,9 +184,9 @@ fn main() {
     } else {
         match &*inputs[1] {
             "setup" => {
-                setup();
+                setup(&home);
                 if inputs.len() > 2 {
-                    copy(&inputs[2],"../config");
+                    copy(&inputs[2],&format!("{}/config",home));
                     let config = read_config(&tracking);
                     for name in config.keys() {
                         initialize(&tracking,&name);
