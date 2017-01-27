@@ -22,7 +22,7 @@ fn setup(home: &str) {
     println!("Please specify a directory for tracking repositories:");
     stdin().read_line(&mut dir).expect("failed to read input");
     let dir = dir.replace("~",home);
-    let mut file = OpenOptions::new().write(true).truncate(true).create(true).open(config_path)
+    let mut file = OpenOptions::new().write(true).truncate(true).create_new(true).open(config_path)
         .expect("failed to open config file");
 
     file.write_all(&dir.trim().as_bytes()).expect("failed to set tracking directory");
@@ -143,7 +143,7 @@ fn fetch(config: &str, name: &str, addr: &str) {
                 x => {
                     let mut file = OpenOptions::new().write(true).append(true)
                                 .create(true).open(&format!("{}/fail-log",config)).unwrap();
-                    let msg = format!("Attempt to fetch {} failed with status code {}","addr",x);
+                    let msg = format!("Attempt to fetch {} failed with status code {}",addr,x);
                     file.write_all(msg.as_bytes()).unwrap();
                     println!("{}",msg);
                 }
@@ -151,7 +151,7 @@ fn fetch(config: &str, name: &str, addr: &str) {
         Err(e) => {
             let mut file = OpenOptions::new().write(true).append(true)
                         .create(true).open("fail-log").unwrap();
-            let msg = format!("Attempt to fetch {} failed with error {}","addr",e);
+            let msg = format!("Attempt to fetch {} failed with error {}",addr,e);
             file.write_all(msg.as_bytes()).unwrap();
             println!("{}",msg);
         }
